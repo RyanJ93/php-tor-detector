@@ -1,0 +1,28 @@
+{
+	"name": "ryanj93/php-tor-detector",
+	"version": "1.1.0",
+	"description": "A very simple library to detect Tor connections using PHP 7 without any dependency.",
+	"type": "library",
+	"license": "GPL-3.0-or-later",
+	"homepage": "https://github.com/RyanJ93/php-tor-detector#readme",
+	"authors": [{
+		"name": "Enrico Sola",
+		"email": "sola.enrico.93@gmail.com",
+		"homepage": "https://www.enricosola.com"
+	}],
+	"require": {
+        "php": ">=7.0"
+    },
+    "keywords": [
+		"tor",
+		"proxy",
+		"validator",
+		"utilities",
+		"security"
+	],
+	"autoload": {
+        "files": [
+	        "php-tor-detector.php"
+	    ]
+    }
+}
