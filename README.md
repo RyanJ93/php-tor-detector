@@ -21,4 +21,18 @@ If you want to get the IP address of the client you can use this method:
 
 `$address = PHPTorDetector\PHPTorDetector::getClientIPAddress();`
 
+By default, check result is cached within session (if session is enabled and if the script is not executed in CLI), you can disable this feature by using this method:
+
+`PHPTorDetector\PHPTorDetector::setSessionCache(false);`
+
+If you want to change the index where the results will be cached you can use this method:
+
+`PHPTorDetector\PHPTorDetector::setSessionCacheName('tor_cache');`
+
+Note that if you want to set multiple indexes within the session array you can separate indexes with a "@" like this:
+
+`PHPTorDetector\PHPTorDetector::setSessionCacheName('tor@cache');`
+
+In this way, cache will be stored in `$_SESSION['tor']['cache']`.
+
 Are you looking for the Node.js version? Give a look [here](https://github.com/RyanJ93/tor-detector).

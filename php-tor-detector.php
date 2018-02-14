@@ -10,6 +10,11 @@
 namespace PHPTorDetector{
 	class PHPTorDetector{
 		/**
+		* @const string DEFAULT_SESSION_NAME A string containing the name of the default session's index in where results will be cached for next uses.
+		*/
+		const DEFAULT_SESSION_NAME = 'PHPTorDetector';
+		
+		/**
 		* @var string $listPath A string containing the path to the file that contains a list of Tor exit points separated by a breakline (\n).
 		*/
 		protected static $listPath = NULL;
@@ -23,6 +28,55 @@ namespace PHPTorDetector{
 		* @var bool $cache If set to "true", the content of the list will be cached for next uses, otherwise not.
 		*/
 		protected static $cache = false;
+		
+		/**
+		* @var bool $sessionCache If set to "true" results will be cached within the session for next uses, otherwise the list will be queried everytime giving fresh results.
+		*/
+		protected static $sessionCache = true;
+		
+		/**
+		* @var string $sessionName A string containing the index name where results will be cached, separate multiple names with "@" to specify multiple levels in the array ("foo@bar" = ['foo']['bar']).
+		*/
+		protected static $sessionName = 'PHPTorDetector';
+		
+		/**
+		* Enables session and returns the operation result.
+		*
+		* @return bool If the session has correctly been started or has already been started will be returned "true", otherwise "false".
+		*/
+		protected static function setupSessionCache(): bool{
+			$status = session_status();
+			if ( $status === \PHP_SESSION_DISABLED ){
+				self::$sessionCache = false;
+				return false;
+			}
+			if ( $status !== \PHP_SESSION_ACTIVE ){
+				$status = @session_start();
+				if ( $status === false ){
+					self::$sessionCache = false;
+					return false;
+				}
+				return true;
+			}
+			return true;
+		}
+		
+		/**
+		* Returns a reference to the index where the cache shall be saved within the $_SESSION array.
+		*
+		* @return array A reference to the index.
+		*/
+		protected static function & getSession(): array{
+			$index = mb_split('@', self::$sessionName);
+			$ref = &$_SESSION;
+			foreach ( $index as $key => $value ){
+				if ( isset($ref[$value]) === false || is_array($ref[$value]) === false ){
+					$ref[$value] = array();
+				}
+				$ref = &$ref[$value];
+			}
+			return $ref;
+		}
 		
 		/**
 		* Sets the path to the list file.
@@ -58,7 +112,7 @@ namespace PHPTorDetector{
 			if ( $value !== true ){
 				self::$cache = false;
 				self::$list = NULL;
-				return this;
+				return;
 			}
 			self::$cache = true;
 		}
@@ -96,6 +150,65 @@ namespace PHPTorDetector{
 			}
 			self::$list = $data;
 			return true;
+		}
+		
+		/**
+		* Sets if the results shall be cached for next uses or not.
+		*
+		* @param bool $value If set to "true", results will be cached for next uses, otherwise not.
+		*/
+		public static function setSessionCache(bool $value = true){
+			if ( $value !== true ){
+				if ( self::setupSessionCache() === true ){
+					$session =& self::getSession();
+					$session = array();
+					self::$sessionCache = false;
+					return;
+				}
+			}
+			self::$sessionCache = true;
+		}
+		
+		/**
+		* Returns if the results shall be cached for next uses or not.
+		*
+		* @return bool If results will be cached will be returned "true", otherwise "false".
+		*/
+		public static function getSessionCache(): bool{
+			return self::$sessionCache === false ? false : true;
+		}
+		
+		/**
+		* Sets the name of the session's index in where results will be cached for next uses.
+		*
+		* @param string $name A string containing the index name, separate multiple names with "@" to specify multiple levels in the array ("foo@bar" = ['foo']['bar']).
+		*
+		* @throws InvalidArgumentException If an invalid name is provided.
+		*/
+		public static function setSessionCacheName(string $name){
+			if ( $name === NULL || $name === '' ){
+				throw new \InvalidArgumentException('Invalid name.');
+			}
+			self::$sessionName = $name;
+		}
+		
+		/**
+		* Returns the name of the session's index in where results will be cached for next uses.
+		*
+		* @return string A string containing the index name.
+		*/
+		public static function getSessionCacheName(): string{
+			return self::$sessionName;
+		}
+		
+		/**
+		* Cleares the content of the cache stored within PHP session.
+		*/
+		public static function invalidateSessionCache(){
+			if ( self::setupSessionCache() === true ){
+				$session =& self::getSession();
+				$session = array();
+			}
 		}
 		
 		/**
@@ -199,14 +312,27 @@ namespace PHPTorDetector{
 			if ( $address === NULL || $address === '' || filter_var($address, \FILTER_VALIDATE_IP) === false ){
 				throw new \InvalidArgumentException('Invalid IP address.');
 			}
+			$sessionCache = self::$sessionCache;
+			$address = strtolower($address);
+			if ( $sessionCache !== false ){
+				if ( self::setupSessionCache() === true ){
+					$session =& self::getSession();
+					if ( isset($session[$address]) === true ){
+						return $session[$address] === true ? true : false;
+					}
+				}
+			}
 			$listPath = self::$listPath;
 			$cache = self::$cache;
 			if ( $listPath === NULL || $listPath === '' ){
 				throw new \BadMethodCallException('No path has been set.');
 			}
-			$address = strtolower($address);
 			if ( $cache === true && self::$list !== NULL ){
-				return strpos(self::$list, $address . "\n") !== false || strpos(self::$list, "\n" . $address) !== false || self::$list === $address ? true : false;
+				$result = strpos(self::$list, $address . "\n") !== false || strpos(self::$list, "\n" . $address) !== false || self::$list === $address ? true : false;
+				if ( $sessionCache !== false && isset($session) === true ){
+					$session[$address] = $result;
+				}
+				return $result;
 			}
 			$data = @file_get_contents(dirname(__FILE__) . '/' . $listPath);
 			if ( $data === false ){
@@ -218,7 +344,11 @@ namespace PHPTorDetector{
 			if ( $cache === true ){
 				self::$list = $data;
 			}
-			return strpos($data, $address . "\n") !== false || strpos($data, "\n" . $address) !== false || $data === $address ? true : false;
+			$result = strpos($data, $address . "\n") !== false || strpos($data, "\n" . $address) !== false || $data === $address ? true : false;
+			if ( $sessionCache !== false && isset($session) === true ){
+				$session[$address] = $result;
+			}
+			return $result;
 		}
 	}
 }
