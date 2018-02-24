@@ -4,7 +4,7 @@
 *
 * @package     php-tor-detector
 * @author      Enrico Sola <info@enricosola.com>
-* @version     v.1.1.0
+* @version     v.1.1.2
 */
  
 namespace PHPTorDetector{
@@ -144,7 +144,7 @@ namespace PHPTorDetector{
 			if ( self::$cache === false || self::$list === NULL ){
 				return false;
 			}
-			$data = @file_get_contents(dirname(__FILE__) . '/' . self::$listPath);
+			$data = @file_get_contents(self::$listPath);
 			if ( $data === false ){
 				throw new \Exception('Unable to load the dictionary.');
 			}
@@ -242,7 +242,7 @@ namespace PHPTorDetector{
 				}
 				$list .= $list === '' ? strtolower(substr($buffer, 0, strpos($buffer, ' '))) : ( "\n" . strtolower(substr($buffer, 0, strpos($buffer, ' '))) );
 			}
-			if ( file_put_contents(dirname(__FILE__) . '/' . $listPath, $list) === false ){
+			if ( @file_put_contents($listPath, $list) === false ){
 				throw new \Exception('Unable to save the file.');
 			}
 		}
@@ -334,7 +334,7 @@ namespace PHPTorDetector{
 				}
 				return $result;
 			}
-			$data = @file_get_contents(dirname(__FILE__) . '/' . $listPath);
+			$data = @file_get_contents($listPath);
 			if ( $data === false ){
 				throw new \Exception('An error occurred while reading the file content.');
 			}
